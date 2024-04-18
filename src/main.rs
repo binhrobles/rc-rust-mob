@@ -81,7 +81,8 @@ fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
 
-    smol::block_on(Compat::new(async {
+    let ex = smol::Executor::new();
+    smol::block_on(ex.run(Compat::new(async {
         let resp = reqwest::get(args.start).await?.bytes().await?;
         eprintln!("bytes len: {}", resp.len());
 
@@ -104,5 +105,5 @@ fn main() -> anyhow::Result<()> {
 
         eprintln!("All done!");
         Ok(())
-    }))
+    })))
 }
