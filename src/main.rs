@@ -1,14 +1,14 @@
 use anyhow::Context;
-use async_compat::{Compat, CompatExt};
-use std::{io::Write, path::PathBuf};
+use async_compat::Compat;
+use std::path::PathBuf;
 
 use reqwest::Url;
-use smol::{io, net, prelude::*, Unblock, Task};
+use smol::{prelude::*, Task, Unblock};
 
 use clap::Parser;
 
-use html5ever::{parse_document, tendril::TendrilSink, Parser as HTMLParser};
-use markup5ever_rcdom::{RcDom, Handle, NodeData};
+use html5ever::{parse_document, tendril::TendrilSink};
+use markup5ever_rcdom::{Handle, NodeData, RcDom};
 
 use futures::future;
 /// A smol web scraper.
@@ -33,12 +33,16 @@ struct Args {
 fn download_img(source: &str) -> Task<anyhow::Result<()>> {
     let source = source.to_string();
     smol::spawn(Compat::new(async move {
-        let url : Url = source.parse()?;
+        let url: Url = source.parse()?;
         let resp = reqwest::get(source).await?.bytes().await?;
         eprintln!("img size: {}", resp.len());
-        let filename = url.path_segments().context("failed to parse path segments")?.last ().context ("could not get last segment of path")?;
-        let filebuf = std::fs::File::create(format!("/tmp/scrape/{}" ,filename))?;
-        let mut filebuf = Unblock::new (filebuf);
+        let filename = url
+            .path_segments()
+            .context("failed to parse path segments")?
+            .last()
+            .context("could not get last segment of path")?;
+        let filebuf = std::fs::File::create(format!("/tmp/scrape/{}", filename))?;
+        let mut filebuf = Unblock::new(filebuf);
         let _ = filebuf.write_all(&resp).await?;
         filebuf.flush().await?;
         Ok(())
@@ -46,7 +50,12 @@ fn download_img(source: &str) -> Task<anyhow::Result<()>> {
 }
 
 fn walk(handle: &Handle, tasks: &mut Vec<Task<anyhow::Result<()>>>) {
-    if let NodeData::Element { ref name, ref attrs, .. } = handle.data {
+    if let NodeData::Element {
+        ref name,
+        ref attrs,
+        ..
+    } = handle.data
+    {
         match name.local.to_ascii_lowercase().as_ref() {
             "img" => {
                 eprintln!("found an image");
@@ -56,8 +65,8 @@ fn walk(handle: &Handle, tasks: &mut Vec<Task<anyhow::Result<()>>>) {
                         tasks.push(download_img(&attr.value[..]));
                     }
                 }
-            },
-            _ => { },
+            }
+            _ => {}
         }
     }
 
