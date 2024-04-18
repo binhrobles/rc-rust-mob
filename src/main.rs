@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use async_compat::{Compat, CompatExt};
 
 use reqwest::Url;
 use smol::{io, net, prelude::*, Unblock};
@@ -24,22 +25,25 @@ struct Args {
     output: PathBuf,
 }
 
-fn main() -> std::io::Result<()> {
+fn main() -> anyhow::Result<()> {
     // URL parsing
     // HTTP handling, in an async runtime
 
     let args = Args::parse();
 
-    smol::block_on(async {
-        let mut stream = net::TcpStream::connect("recurse.com:80").await?;
-        let req = b"GET / HTTP/1.1\r\nHost: recurse.com\r\nConnection: close\r\n\r\n";
-        stream.write_all(req).await?;
+    smol::block_on(Compat::new(async {
+        let resp = reqwest::get(args.start)
+            .await?
+            .bytes()
+            .await?;
+        eprintln!("bytes len: {}", resp.len());
 
         let f = std::fs::File::create(args.output)?;
 
         let mut stdout = Unblock::new(f);
-        io::copy(stream, &mut stdout).await?;
+        stdout.write_all(&resp).await?;
+
         eprintln!("All done!");
         Ok(())
-    })
+    }))
 }
