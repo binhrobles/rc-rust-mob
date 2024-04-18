@@ -6,6 +6,9 @@ use smol::{io, net, prelude::*, Unblock};
 
 use clap::Parser;
 
+use html5ever::{parse_document, tendril::TendrilSink, Parser as HTMLParser};
+use markup5ever_rcdom::RcDom;
+
 /// A smol web scraper.
 ///
 /// Cache your favorite websites to your local machine!
@@ -40,6 +43,12 @@ fn main() -> anyhow::Result<()> {
         let mut stdout = Unblock::new(f);
         stdout.write_all(&resp).await?;
         stdout.flush().await?;
+
+        let dom = parse_document(RcDom::default(), Default::default())
+            .from_utf8()
+            .read_from(&mut std::io::Cursor::new(&resp))?;
+
+        eprintln!("dom? {:?}", dom.document);
 
         eprintln!("All done!");
         Ok(())
