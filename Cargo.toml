@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0.82"
 async-compat = "0.2.3"
 clap = { version = "4.5.4", features = ["derive"] }
+futures = "0.3.30"
 html5ever = "0.27.0"
 markup5ever_rcdom = "0.3.0"
 reqwest = "0.12.3"

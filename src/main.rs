@@ -9,6 +9,7 @@ use clap::Parser;
 use html5ever::{parse_document, tendril::TendrilSink, Parser as HTMLParser};
 use markup5ever_rcdom::{RcDom, Handle, NodeData};
 
+use futures::future;
 /// A smol web scraper.
 ///
 /// Cache your favorite websites to your local machine!
@@ -30,11 +31,11 @@ struct Args {
 
 fn download_img(source: &str) -> Task<anyhow::Result<()>> {
     let source = source.to_string();
-    smol::spawn(async move {
+    smol::spawn(Compat::new(async move {
         let resp = reqwest::get(source).await?.bytes().await?;
         eprintln!("img size: {}", resp.len());
         Ok(())
-    })
+    }))
 }
 
 fn walk(handle: &Handle, tasks: &mut Vec<Task<anyhow::Result<()>>>) {
@@ -81,6 +82,8 @@ fn main() -> anyhow::Result<()> {
         // eprintln!("dom? {:?}", dom.document);
         let mut tasks = Vec::new();
         walk(&dom.document, &mut tasks);
+
+        future::join_all(tasks).await;
 
         eprintln!("All done!");
         Ok(())
