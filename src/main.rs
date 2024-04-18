@@ -2,12 +2,12 @@ use async_compat::{Compat, CompatExt};
 use std::path::PathBuf;
 
 use reqwest::Url;
-use smol::{io, net, prelude::*, Unblock};
+use smol::{io, net, prelude::*, Unblock, Task};
 
 use clap::Parser;
 
 use html5ever::{parse_document, tendril::TendrilSink, Parser as HTMLParser};
-use markup5ever_rcdom::RcDom;
+use markup5ever_rcdom::{RcDom, Handle, NodeData};
 
 /// A smol web scraper.
 ///
@@ -26,6 +26,36 @@ struct Args {
     /// Output directory (...er, file) to save files to.
     #[arg(short, long)]
     output: PathBuf,
+}
+
+fn download_img(source: &str) -> Task<anyhow::Result<()>> {
+    let source = source.to_string();
+    smol::spawn(async move {
+        let resp = reqwest::get(source).await?.bytes().await?;
+        eprintln!("img size: {}", resp.len());
+        Ok(())
+    })
+}
+
+fn walk(handle: &Handle, tasks: &mut Vec<Task<anyhow::Result<()>>>) {
+    if let NodeData::Element { ref name, ref attrs, .. } = handle.data {
+        match name.local.to_ascii_lowercase().as_ref() {
+            "img" => {
+                eprintln!("found an image");
+                for attr in attrs.borrow().iter() {
+                    if attr.name.local.to_ascii_lowercase().as_ref() == "src" {
+                        eprintln!("src is {}", &attr.value[..]);
+                        tasks.push(download_img(&attr.value[..]));
+                    }
+                }
+            },
+            _ => { },
+        }
+    }
+
+    for child in handle.children.borrow().iter() {
+        walk(child, tasks);
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -48,7 +78,9 @@ fn main() -> anyhow::Result<()> {
             .from_utf8()
             .read_from(&mut std::io::Cursor::new(&resp))?;
 
-        eprintln!("dom? {:?}", dom.document);
+        // eprintln!("dom? {:?}", dom.document);
+        let mut tasks = Vec::new();
+        walk(&dom.document, &mut tasks);
 
         eprintln!("All done!");
         Ok(())
