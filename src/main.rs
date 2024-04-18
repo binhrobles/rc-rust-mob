@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use reqwest::Url;
 use smol::{io, net, prelude::*, Unblock};
 
 use clap::Parser;
@@ -12,7 +13,7 @@ use clap::Parser;
 struct Args {
     /// URL to start scraping at.
     #[arg(short, long)]
-    start: Option<String>,
+    start: Url,
 
     /// Whether to include the assets for the page.
     #[arg(short, long, default_value_t = true)]
@@ -24,6 +25,9 @@ struct Args {
 }
 
 fn main() -> std::io::Result<()> {
+    // URL parsing
+    // HTTP handling, in an async runtime
+
     let args = Args::parse();
 
     smol::block_on(async {
