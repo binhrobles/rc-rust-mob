@@ -1,5 +1,6 @@
+use anyhow::Context;
 use async_compat::{Compat, CompatExt};
-use std::path::PathBuf;
+use std::{io::Write, path::PathBuf};
 
 use reqwest::Url;
 use smol::{io, net, prelude::*, Unblock, Task};
@@ -32,8 +33,14 @@ struct Args {
 fn download_img(source: &str) -> Task<anyhow::Result<()>> {
     let source = source.to_string();
     smol::spawn(Compat::new(async move {
+        let url : Url = source.parse()?;
         let resp = reqwest::get(source).await?.bytes().await?;
         eprintln!("img size: {}", resp.len());
+        let filename = url.path_segments().context("failed to parse path segments")?.last ().context ("could not get last segment of path")?;
+        let filebuf = std::fs::File::create(format!("/tmp/scrape/{}" ,filename))?;
+        let mut filebuf = Unblock::new (filebuf);
+        let _ = filebuf.write_all(&resp).await?;
+        filebuf.flush().await?;
         Ok(())
     }))
 }
@@ -70,6 +77,7 @@ fn main() -> anyhow::Result<()> {
         eprintln!("bytes len: {}", resp.len());
 
         let f = std::fs::File::create(args.output)?;
+        let _ = std::fs::create_dir_all("/tmp/scrape")?;
 
         let mut stdout = Unblock::new(f);
         stdout.write_all(&resp).await?;
