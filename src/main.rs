@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use async_compat::{Compat, CompatExt};
+use std::path::PathBuf;
 
 use reqwest::Url;
 use smol::{io, net, prelude::*, Unblock};
@@ -32,16 +32,14 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     smol::block_on(Compat::new(async {
-        let resp = reqwest::get(args.start)
-            .await?
-            .bytes()
-            .await?;
+        let resp = reqwest::get(args.start).await?.bytes().await?;
         eprintln!("bytes len: {}", resp.len());
 
         let f = std::fs::File::create(args.output)?;
 
         let mut stdout = Unblock::new(f);
         stdout.write_all(&resp).await?;
+        stdout.flush().await?;
 
         eprintln!("All done!");
         Ok(())
